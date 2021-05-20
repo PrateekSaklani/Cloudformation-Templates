@@ -1,0 +1,227 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+        "Description": "Stack for the Document DB Cluster with 1 Witer and 1 Reader Node",
+        "Metadata": {
+    
+        },
+        "Parameters": {
+    
+            "ClientName": {
+                "Description": "Enter Client Name for Tagging",
+                "Type": "String"            
+            }, 
+            "DocDBParameterGroup": {
+                "Description": "Enter Client Name for Tagging",
+                "Type": "String"            
+            }, 
+            "VPCIDDB": {
+                "Description": "Provide VPC ID for the Database",
+                "Type": "String"            
+            },
+            "SubnetID1": {
+                "Description": "Provide Subnet ID for the Subnet Group",
+                "Type": "String"            
+            },
+            "SubnetID2": {
+                "Description": "Provide Subnet ID for the Subnet Group",
+                "Type": "String"            
+            },
+            "SubnetID3": {
+                "Description": "Provide Subnet ID for the Subnet Group",
+                "Type": "String"            
+            },
+    
+            "DBClusterName": {
+                "Default": "MyDocDB",
+                "Description": "Cluster name",
+                "Type": "String",
+                "MinLength": "1",
+                "MaxLength": "64",
+                "AllowedPattern": "[a-zA-Z][a-zA-Z0-9]*(-[a-zA-Z0-9]+)*",
+                "ConstraintDescription": "Must begin with a letter and contain only alphanumeric characters."
+            },
+            "MasterUser": {
+                "NoEcho": "false",
+                "Description": "The database admin account username",
+                "Default": "travesys",
+                "Type": "String",
+                "MinLength": "1",
+                "MaxLength": "16",
+                "AllowedPattern": "[a-zA-Z][a-zA-Z0-9]*",
+                "ConstraintDescription": "Must begin with a letter and contain only alphanumeric characters."
+            },
+            "MasterPassword": {
+                "NoEcho": "true",
+                "Description": "The database admin account password",
+                "Type": "String",
+                "MinLength": "1",
+                "MaxLength": "41",
+                "ConstraintDescription": "must contain only alphanumeric characters."
+            },
+            "DBInstanceClass": {
+                "Description": "Choose the Instance class",
+                "Default": "db.r5.large",
+                "Type": "String",
+                "AllowedValues": [
+                    "db.r4.large",
+                    "db.r4.xlarge",
+                    "db.r4.2xlarge",
+                    "db.r4.4xlarge",
+                    "db.r4.8xlarge",
+                    "db.r4.16xlarge",
+                    "db.r5.large",
+                    "db.r5.xlarge",
+                    "db.r5.2xlarge",
+                    "db.r5.4xlarge",
+                    "db.r5.12xlarge",
+                    "db.r5.24xlarge"
+                ]
+            }
+        
+        },
+        "Mappings": {
+    
+        },
+        "Conditions": {
+    
+        },
+        "Resources": {
+
+            "DatabaseSG" : {
+                "Type" : "AWS::EC2::SecurityGroup",
+                "Properties" : {
+                  "GroupDescription" : "Security Group for Databases",
+                  "SecurityGroupIngress" : [ 
+                   {"IpProtocol": "-1",
+                       "CidrIp": "0.0.0.0/0" ,
+                       "Description" :"All Traffic" }                                
+                  ],
+                  "VpcId" : 
+                  { "Ref": "VPCIDDB" }
+                  ,
+                  "Tags" :  [            
+                  { "Key": "Name", "Value":  "DatabaseSG" },
+                  { "Key": "Client", "Value":  { "Ref": "ClientName" }
+                   }
+                  ] 
+                        }
+              },
+    
+            "DocDBSubnetGroup":{
+                "Type" : "AWS::DocDB::DBSubnetGroup",
+                "Properties" : {
+                    "DBSubnetGroupDescription" : "Subnet Group for Document DB",
+                    "DBSubnetGroupName" : 
+                    {"Fn::Join" : ["-",[ 
+                    { "Ref": "ClientName" }
+                    , "documentdb-subnet-group" ] ]}
+                    ,
+                    "SubnetIds" : [ 
+                    { "Ref": "SubnetID1" },
+                    { "Ref": "SubnetID2" },
+                    { "Ref": "SubnetID2" }
+                    ],
+                    "Tags":[
+                    { "Key": "Client", "Value":  
+                    { "Ref": "ClientName" }
+                     }
+                    ]
+                  }
+              },
+              
+    
+           "DocumentDBCluster": {
+                "Type" : "AWS::DocDB::DBCluster",
+                "DependsOn": "DocDBSubnetGroup",
+                "Properties" : {
+                    "BackupRetentionPeriod" : 7,
+                    "DBClusterIdentifier" : 
+                    { "Ref": "DBClusterName" },
+                    "DBClusterParameterGroupName" : 
+                    { "Ref": "DocDBParameterGroup" },
+                    "DBSubnetGroupName" : 
+                    { "Ref": "DocDBSubnetGroup" },
+                    "DeletionProtection" : true,
+                    "EngineVersion" : "3.6.0",
+                    "MasterUsername" : 
+                    { "Ref": "MasterUser" },
+                    "MasterUserPassword" : 
+                    { "Ref": "MasterPassword" },
+                    "StorageEncrypted" : true,
+                    "EnableCloudwatchLogsExports" : ["audit", "profiler"],
+                    "Tags":[
+                    { "Key": "Client", "Value": 
+                    { "Ref": "ClientName" }
+                     }
+                    ],
+                    "VpcSecurityGroupIds" : [
+                    { "Ref": "DatabaseSG" }
+                    ]
+                  }
+              },
+    
+              "DocumentDBINstance1":{
+                "Type" : "AWS::DocDB::DBInstance",
+                "DependsOn": "DocumentDBCluster",
+                "Properties" : {
+                    "AutoMinorVersionUpgrade" : false,
+                    "DBClusterIdentifier" : 
+                    { "Ref": "DocumentDBCluster" },
+                    "DBInstanceClass" : 
+                    { "Ref": "DBInstanceClass" },
+                    "Tags" : [{ "Key": "Client", "Value": 
+                        { "Ref": "ClientName" }
+                         }]
+                  }
+              },
+              "DocumentDBINstance2":{
+                "Type" : "AWS::DocDB::DBInstance",
+                "DependsOn": "DocumentDBCluster",
+                "Properties" : {
+                    "AutoMinorVersionUpgrade" : false,
+                    "DBClusterIdentifier" : 
+                    { "Ref": "DocumentDBCluster" },
+                    "DBInstanceClass" : 
+                    { "Ref": "DBInstanceClass" },
+                    "Tags" : [{ "Key": "Client", "Value": 
+                        { "Ref": "ClientName" }
+                         }]
+                  }
+              }
+              
+    
+        },
+        "Outputs": {
+            "DBEndpoint": {
+                "Description": "Database  Cluster Endpoint",
+                "Value": 
+                { "Fn::GetAtt" : [ "DocumentDBCluster", "Endpoint" ]},
+                "Export": {
+                    "Name": {
+                      "Fn::Sub": "${AWS::StackName}-DocumentDBClusterEndpoint"
+                  }
+                }
+            },
+            "ReaderEndpoint": {
+                "Description": "DocumentDB Readers Endpoint",
+                "Value": 
+                { "Fn::GetAtt" : [ "DocumentDBCluster", "ReadEndpoint" ]},
+                "Export": {
+                    "Name": {
+                      "Fn::Sub": "${AWS::StackName}-DocumentDBReadEndpoint"
+                  }
+                }
+            },
+            "SecurityGroup": {
+                "Description": "Group Id for Security Group",
+                "Value": {"Ref": "DatabaseSG"},
+                "Export": {
+                    "Name": {
+                      "Fn::Sub": "${AWS::StackName}-DatabaseSG"
+                  }
+                }
+            }
+    
+    
+        }
+    }
