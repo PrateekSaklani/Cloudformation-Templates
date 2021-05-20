@@ -1,6 +1,6 @@
 {
     "AWSTemplateFormatVersion": "2010-09-09",
-        "Description": "Stack for the Document DB Cluster with 1 Witer and 1 Reader Node",
+        "Description": "Stack for the Document DB Cluster with 1 Writer and 1 Reader Node",
         "Metadata": {
     
         },
@@ -11,7 +11,7 @@
                 "Type": "String"            
             }, 
             "DocDBParameterGroup": {
-                "Description": "Enter Client Name for Tagging",
+                "Description": "Enter Parameter Group Name",
                 "Type": "String"            
             }, 
             "VPCIDDB": {
