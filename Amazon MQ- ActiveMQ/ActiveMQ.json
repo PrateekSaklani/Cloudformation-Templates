@@ -1,0 +1,127 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+      "Description": "Stack for Amazon MQ",
+      "Metadata": {
+  
+      },
+      "Parameters": {
+  
+          "BrokerName": {
+              "Type": "String"
+            },
+            "MQInstanceType":{
+              "Description": "Select the Instance Type",
+              "Type": "String",
+              "AllowedValues": ["mq.t3.micro", "mq.m5.large", "mq.m5.xlarge", "mq.m5.2xlarge", "mq.m5.4xlarge", "mq.t2.micro", "mq.m4.large"]
+            },
+            "SubnetId1": {
+              "Type": "String"
+            },
+            "SubnetId2": {
+              "Type": "String"
+            },
+            "VPC": {
+              "Description": "Enter the VPC Id",
+              "Type": "String"
+            },
+            "Username": {
+              "Description":"Enter the Username for Amazon MQ",
+              "Type": "String"
+            },
+            "Password": {
+              "NoEcho": "true",
+              "Description":"Enter the Password for Amazon MQ", 
+              "Type": "String"
+            }
+            
+  
+      },
+      "Mappings": {
+  
+      },
+      "Conditions": {
+  
+      },
+      "Resources": {
+              
+        "ActivemqSG": {
+          "Type": "AWS::EC2::SecurityGroup",
+          "Properties": {
+              "GroupDescription": "Security Group for ActiveMQ",
+              "SecurityGroupIngress": [
+                  {
+                      "IpProtocol": "-1",
+                      "CidrIp": "0.0.0.0/32",
+                      "FromPort": 0,
+                      "ToPort": 65535
+                  }
+                  
+              ],
+              "VpcId": {
+                  "Ref": "VPC"
+              },
+              "Tags": [
+                  {
+                      "Key": "Name",
+                      "Value": "ActivemqSG"
+                  },
+                  {
+                      "Key": "Client",
+                      "Value":  "Alpha"
+                          
+                      
+                  }
+              ]
+          }
+      },
+
+              "AmazonMQ": {
+              "Type" : "AWS::AmazonMQ::Broker",
+              "Properties" : {
+                  "AutoMinorVersionUpgrade" : "true",
+                  "BrokerName" : 
+                  { "Ref": "BrokerName" },
+                  "DeploymentMode" : "ACTIVE_STANDBY_MULTI_AZ",
+                  "EncryptionOptions" : {
+                      "UseAwsOwnedKey" : "true"
+                    },
+                  "EngineType" : "ACTIVEMQ",
+                  "EngineVersion" : "5.15.12",
+                  "HostInstanceType" : 
+                  {"Ref": "MQInstanceType"},
+                  "Logs" : {
+                      "Audit" : "true",
+                      "General" : "true"
+                    },
+                  "PubliclyAccessible" : "false",
+                  "SecurityGroups" :[ 
+                  { "Ref": "ActivemqSG" }],
+                  "SubnetIds" : [
+                  { "Ref": "SubnetId1"},
+                  { "Ref": "SubnetId2" }
+                  ],
+                  "Tags" : [ {
+                      "Key" : "Client",
+                      "Value" : "Alpha"
+                    }
+                    ],
+                  "Users" : [ {
+                      "ConsoleAccess" : "true",
+                      "Password" : 
+                      { "Ref": "Password" }
+                      ,
+                      "Username" : 
+                      { "Ref": "Username" }
+                      
+                    }
+                    ]
+                }
+            }
+            
+  
+      },
+  
+      "Outputs": {
+  
+      }
+  }
