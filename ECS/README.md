@@ -8,7 +8,7 @@ AWS Fargate is a serverless compute engine for containers that works with both A
 
 To deploy and run container in Fargate you require Cluster, Taskdefinition and Service.
 
-Here are the Cloud Formation templates for register Taskdifinition and create Service for the container.
+Here are the Cloud Formation templates to register the Taskdifinition and create Service for the container.
 
 
 
