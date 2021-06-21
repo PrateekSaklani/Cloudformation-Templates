@@ -1,0 +1,143 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+        "Description": "Template for creation of Elastic Cache",
+        "Metadata": {
+    
+        },
+        "Parameters": {
+            "NodeType":{
+                "Description": "Select the Instance",
+                "Type": "String",
+                "AllowedValues": ["cache.m5.large", "cache.m5.xlarge", "cache.m5.2xlarge", "cache.m5.4xlarge", "cache.t3.micro", "cache.t3.small", "cache.t3.medium", 
+                    "cache.r5.large", "cache.r5.xlarge", "cache.r5.2xlarge", "cache.r5.4xlarge"]
+              },
+              "VPCIDCache": {
+                "Description": "Provide the VPC ID",
+                "Type": "String"            
+            },
+            "CacheName": {
+                "Description": "Provide the Name of the Cache", 
+                "Type": "String"            
+            },
+            "SubnetID1": {
+                "Description": "Provide Subnet ID for the Subnet Group",
+                "Type": "String"            
+            },
+            "SubnetID2": {
+                "Description": "Provide Subnet ID for the Subnet Group",
+                "Type": "String"            
+            },
+            "NumShards": {
+                "Description": "Number of shards in the cluster",
+                "Type": "Number",
+                "Default": 1,
+                "MinValue": 1,
+                "MaxValue":250            
+            },
+            "NumReplicas": {
+                "Description": "Number of replicas per shard",
+                "Type": "Number",
+                "Default": 1,
+                "MinValue": 0,
+                "MaxValue": 5            
+            },
+            "ClientName": {
+                "Description": "Enter Client Name for Tagging",
+                "Type": "String"            
+            }
+        
+        },
+        "Mappings": {
+    
+        },
+        "Conditions": {
+    
+        },
+        "Resources": {
+            "ElasticCacheSG" : {
+                "Type" : "AWS::EC2::SecurityGroup",
+                "Properties" : {
+                  "GroupDescription" : "Security Group for Databases",
+                  "SecurityGroupIngress" : [ 
+                   {"IpProtocol": "-1",
+                       "CidrIp": "0.0.0.0/32",
+                       "FromPort": 0,
+                       "ToPort": 65535}      
+                  ],
+                  "VpcId" : 
+                  { "Ref": "VPCIDCache" }
+                  ,
+                  "Tags" :  [            
+                  { "Key": "Name", "Value":  
+                  { "Ref": "CacheName" }
+                   },
+                  {"Key": "Client", "Value":  
+                  { "Ref": "ClientName" }
+                  }
+                  ] 
+                        }
+              },
+    
+             "ElasticCacheSubnetGroup": {
+                "Type" : "AWS::ElastiCache::SubnetGroup",
+                "Properties" : {
+                    "Description" : "Subnet Group for the Elastic Cache",
+                    "CacheSubnetGroupName" : 
+                    {"Fn::Join" : ["-",[ 
+                    { "Ref": "ClientName" }
+                    , "RedisSubnetGroup" ] ]},
+                    "SubnetIds" : [ 
+                    { "Ref": "SubnetID1" },
+                    { "Ref": "SubnetID2" }
+                    ]
+                  }
+              },
+              
+            "Elasticchache":{
+                "Type" : "AWS::ElastiCache::ReplicationGroup",
+                "DependsOn": "ElasticCacheSubnetGroup",
+                      "Properties" : {
+                        "ReplicationGroupDescription": 
+                        { "Ref": "CacheName" },
+                          "AtRestEncryptionEnabled" : true,
+                          "AutomaticFailoverEnabled" : true,
+                          "CacheNodeType" : 
+                          { "Ref": "NodeType" },
+                          "CacheParameterGroupName" : "default.redis4.0",
+                          "CacheSubnetGroupName" : 
+                          { "Ref": "ElasticCacheSubnetGroup" },
+                          "Engine" : "Redis",
+                          "EngineVersion" : "4.0.10",
+                          "MultiAZEnabled" : true,
+                          "NumNodeGroups" : 
+                          { "Ref": "NumShards" } ,
+                          "ReplicasPerNodeGroup" : 
+                          { "Ref": "NumReplicas" } ,
+                          "SecurityGroupIds" : [ 
+                          { "Ref": "ElasticCacheSG" }
+                          ],
+                          "Tags":[
+                          { "Key": "Name", "Value":  "CacheName" },
+                          { "Key": "Client", "Value":  "ClientName" }  
+                          ]
+        }
+              }
+              
+        },
+        "Outputs": {
+    
+            "CacheEndpoint": {
+                "Description": "Cache Endpoint",
+                "Value": 
+                { "Fn::GetAtt" : [ "Elasticchache", "PrimaryEndPoint.Address" ]},
+                "Export": {
+                    "Name": {
+                      "Fn::Sub": "${AWS::StackName}-CacheEndpoint"
+                  }
+                }
+            },
+    
+    
+    
+        }
+    }
