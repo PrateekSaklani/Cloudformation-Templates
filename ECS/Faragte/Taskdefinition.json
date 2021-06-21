@@ -1,0 +1,119 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+      "Description": "Creating TaskDefinition",
+      "Metadata": {
+  
+      },
+      "Parameters": {
+      
+      },
+      "Mappings": {
+  
+      },
+      "Conditions": {
+  
+      },
+      "Resources": {
+          "taskdefinition":{
+          "Type" : "AWS::ECS::TaskDefinition",
+          "Properties" : {
+               "ContainerDefinitions" : [ 
+                   {
+                     "Cpu" : "1024",
+                     "Essential": "true",        
+                     "Environment" : [ {
+                      "Name": "ASPNETCORE_ENVIRONMENT",
+                      "Value": "SecretManager"
+                  }
+                  
+  
+              ],
+                  "LogConfiguration": {
+                  "LogDriver": "awslogs",
+                  "Options": {
+                  "awslogs-group": "/ecs/test",
+                  "awslogs-region": "eu-west-1",
+                  "awslogs-stream-prefix": "ecs"
+                  }
+              },
+          
+              "Image" : "Provide the Docker Image URL",
+              "DependsOn" : [{
+                  "Condition" : "HEALTHY",
+                  "ContainerName" : "envoy"
+                }
+                ],
+              "Memory" : "2048",
+              "Name" : "test",
+              "PortMappings" : [ {
+                  "ContainerPort": 80,
+                  "HostPort": 80
+              }
+              ]
+          },
+
+          {
+            "Environment" : [ {"Name":"APPMESH_VIRTUAL_NODE_NAME",
+              "Value":"mesh/quarantine/virtualNode/test"}
+              
+              ],
+                 
+              "HealthCheck" : {
+                  "Command" : [ "CMD-SHELL",
+                      "curl -s http://localhost:9901/server_info | grep state | grep -q LIVE"
+                  ],
+                  "Interval" : "5",
+                  "Retries" : "3",
+                  "StartPeriod" : "10",
+                  "Timeout" : "2"
+                },
+              "Image" : "840364872350.dkr.ecr.us-west-2.amazonaws.com/aws-appmesh-envoy:v1.12.1.0-prod",
+              
+              "Memory" : "500",
+              "Name" : "envoy",
+              "User" : "1337"
+            }
+           
+          ],
+            "Cpu" : "1024",
+            "ExecutionRoleArn" : "arn:aws:iam::123456789:role/ecsTaskExecutionRole",
+            "Family" : "test",
+            "Memory" : "2048",
+            "NetworkMode" : "awsvpc",
+            "ProxyConfiguration" :{
+              "ContainerName" : "envoy",
+              "ProxyConfigurationProperties" : [  {
+                "Name": "ProxyIngressPort",
+                "Value": "15000"
+              },
+              {
+                "Name": "AppPorts",
+                "Value": "80"
+              },
+              {
+                "Name": "EgressIgnoredIPs",
+                "Value": "169.254.170.2,169.254.169.254"
+              },
+              {
+                "Name": "IgnoredUID",
+                "Value": "1337"
+              },
+              {
+                "Name": "ProxyEgressPort",
+                "Value": "15001"
+              } ],
+              "Type" : "APPMESH"
+             },
+            "RequiresCompatibilities" :[
+              "FARGATE"
+          ],
+            "TaskRoleArn" : "arn:aws:iam::123456789:role/ecsTaskExecutionRole"
+          }
+          }
+      
+      },
+           "Outputs": {
+  
+          }
+      
+  }

@@ -1,0 +1,204 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+      "Description": "ECS Service",
+      "Metadata": {
+  
+      },
+      "Parameters": { 
+            "ServiceName": {
+              "Description": "Enter name for the Service",
+              "Type": "String"
+            },
+            "SecurityGroup": {
+              "Description": "Provide Security Group for the Container",
+              "Type": "String"
+            },
+            "taskdefinition": {
+              "Description": "Provide the registered Task definition",
+              "Type": "String"
+            },
+            "cluster": {
+              "Description": "Provide the Cluster Name",
+              "Type": "String"
+            },
+            "namespaceid": {
+              "Description": "Provide Namespace id for CloudMap for App Mesh",
+              "Type": "String"
+            },
+            "SubnetID1": {
+              "Description": "Provide Subnet ID for the Subnet Group",
+              "Type": "String"            
+          },
+          "SubnetID2": {
+            "Description": "Provide Subnet ID for the Subnet Group",
+            "Type": "String"            
+        },
+        "SubnetID3": {
+            "Description": "Provide Subnet ID for the Subnet Group",
+            "Type": "String"            
+        }
+
+      
+      },
+      "Mappings": {
+  
+      },
+      "Conditions": {
+  
+      },
+      "Resources": {
+          "service": {
+              "Type": "AWS::ECS::Service",
+              "Properties" : {
+                "Cluster": 
+                { "Ref": "cluster" }
+                ,
+                "DeploymentConfiguration": {
+                  "MaximumPercent": 200,
+                  "MinimumHealthyPercent": 100
+                },
+                "DeploymentController" : {
+                  "Type" : "ECS"
+                },
+                "LaunchType" : "FARGATE",
+                "DesiredCount": 1,             
+                "NetworkConfiguration" : {
+                    "AwsvpcConfiguration" : {
+                            "AssignPublicIp" : "DISABLED",
+                            "SecurityGroups" : [ 
+                            { "Ref": "SecurityGroup" }
+                             ],
+                            "Subnets" : [ 
+                            { "Ref": "SubnetID1" },
+                            { "Ref": "SubnetID2" },
+                            { "Ref": "SubnetID3" }
+                            
+                            
+                            ]
+                          }
+  
+                  },
+                  "LoadBalancers":[{
+                    "ContainerName" : "test",
+                    "ContainerPort" : 80,
+                    "TargetGroupArn" : "arn:aws:elasticloadbalancing:eu-west-1:123456789:targetgroup/Test-TG/d2287ab8c0836def"
+                  }
+                  ],
+                "TaskDefinition" : {"Ref":"taskdefinition"},
+                "Tags":[
+                  { "Key": "Client", "Value":  "Test" }
+                  ],
+                "ServiceRegistries" : [ {
+                  "RegistryArn" : 
+                  { "Fn::GetAtt" : [ "DiscoveryService", "Arn" ]}
+                  
+                } ],
+                "ServiceName": {"Ref": "ServiceName"}
+              }
+            },
+            "AutoscalingCPUAlarm": {
+              "Type": "AWS::CloudWatch::Alarm",
+              "Properties": {
+                 "MetricName": "CPUUtilization",
+                 "Namespace": "AWS/ECS",                        
+                 "EvaluationPeriods": "1",
+                 "Period": "43200",
+                 "Statistic": "Average",
+                 "Threshold": "30",
+                 "ActionsEnabled": "true",
+                 "AlarmActions": [ 
+                 { "Ref": "AutoScalingPolicy" }
+                 ],
+                 "AlarmDescription": "Containers CPU Utilization High",
+                 "AlarmName": {"Fn::Join" : ["",[ 
+                  { "Ref": "ServiceName" }
+                  , "CPUUtilization" ] ]},
+                 "ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+                 "Dimensions": [ {
+                   "Name" : "ServiceName",
+                   "Value" : 
+                   { "Fn::GetAtt" : [ "service", "Name" ]}
+                   
+                 },
+                 {
+                   "Name" : "ClusterName",
+                   "Value" : 
+                   { "Ref": "cluster" }
+                   
+                 }
+                 
+                  ]
+              }
+           },
+           "autoscalinggroup":
+                    {
+                      "Type" : "AWS::ApplicationAutoScaling::ScalableTarget",
+                      "Properties" : {
+                          "MaxCapacity" : "4",
+                          "MinCapacity" : "1",
+                          "ResourceId" : 
+                          {"Fn::Join" : ["/",[ "service",
+                          { "Ref": "cluster" }
+                          , 
+                          { "Fn::GetAtt" : [ "service", "Name" ]}
+                           ] ]}
+                          ,
+                          "ScalableDimension" : "ecs:service:DesiredCount",
+                          "RoleARN": "arn:aws:iam::116415679317:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService",
+                          
+                          "ServiceNamespace" : "ecs"                        
+                        }
+                    },
+                    
+                    "AutoScalingPolicy":
+                    {
+                      "Type" : "AWS::ApplicationAutoScaling::ScalingPolicy",
+                      "Properties" : {
+                        "PolicyName" : "CPUUtilizationScaling",
+                        "PolicyType" : "TargetTrackingScaling",
+                          "ScalingTargetId" : 
+                          { "Ref": "autoscalinggroup" },                        
+                          "TargetTrackingScalingPolicyConfiguration" : {   
+                            "ScaleInCooldown" : "120",
+                            "ScaleOutCooldown": "30",                       
+                            "DisableScaleIn" : "false",
+                            "PredefinedMetricSpecification" : {
+                              "PredefinedMetricType" : "ECSServiceAverageCPUUtilization"
+                            }, 
+                            "TargetValue" : "25"
+                          }
+                          
+                        }
+                    },
+                    "DiscoveryService": {
+                      "Type": "AWS::ServiceDiscovery::Service",
+                      "Properties": {
+                        "Description": "Discovery Service for Testing",
+                        "DnsConfig": {
+                          "RoutingPolicy": "MULTIVALUE",
+                          "DnsRecords": [
+                            {
+                              "TTL": 60,
+                              "Type": "A"
+                            }
+                            
+                          ]
+                        },
+                        "HealthCheckCustomConfig": {
+                          "FailureThreshold": 1
+                        },
+                        "Name": {"Fn::Join" : [".",[ "_http._tcp" ,
+                          { "Ref": "ServiceName" }
+                            ] ]},
+                        "NamespaceId": 
+                        { "Ref": "namespaceid" }
+                        
+                        
+                      }
+                    }
+  
+      },
+      "Outputs": {
+  
+      }
+  }
